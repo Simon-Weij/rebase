@@ -63,77 +63,113 @@ def is_flatpak_installed(package):
 
 
 def package_prompt():
-    answer = ''
-    while answer.lower() not in ("e", "i"):
-        print("Do you want to save your packages to export (e) or install (i) packages from the JSON file? [i/e]")
-        answer = input().lower()
+    while True:
+        print("\nDo you want to:")
+        print("  1. Export packages to JSON")
+        print("  2. Install packages from JSON")
+        answer = input("Enter your choice [1/2]: ")
 
-        if answer == "e":
+        if answer == "1":
             dnf_packages = get_user_installed_packages()
             flatpak_packages = get_installed_flatpaks()
             save_apps_to_json("packages.json", dnf_packages, flatpak_packages)
+            break
+        elif answer == "2":
+            try:
+                with open("packages.json", "r") as f:
+                    data = json.load(f)
+            except FileNotFoundError:
+                print("Error: packages.json not found. Please export packages first.")
+                return
 
-        elif answer == "i":
-            with open("packages.json", "r") as f:
-                data = json.load(f)
+            while True:
+                print("\nDo you want to manually approve each package? [1=Yes/2=No]")
+                answeryn = input("Enter your choice [1/2]: ")
+                if answeryn in ("1", "2"):
+                    break
+                else:
+                    print("Invalid choice. Please enter 1 or 2.")
 
-            answeryn = ''
-            while answeryn.lower() not in ("y", "n"):
-                print("Do you want to manually approve each package? [y/n]")
-                answeryn = input().lower()
-
+            print("\n--- Installing DNF Packages ---")
             for package in data.get("dnf", []):
                 if is_dnf_installed(package):
                     print(f"DNF package already installed: {package}")
                     continue
 
                 print(f"Installing DNF package: {package}")
-                if answeryn == "y":
+                if answeryn == "1":
                     input("Press Enter to install or Ctrl+C to skip...")
-                    subprocess.run(["sudo", "dnf", "install", package], check=True)
+                    try:
+                        subprocess.run(["sudo", "dnf", "install", package], check=True)
+                    except subprocess.CalledProcessError as e:
+                        print(f"Error installing DNF package {package}: {e}")
                 else:
-                    subprocess.run(["sudo", "dnf", "install", package, "-y"], check=True)
+                    try:
+                        subprocess.run(["sudo", "dnf", "install", package, "-y"], check=True)
+                    except subprocess.CalledProcessError as e:
+                        print(f"Error installing DNF package {package}: {e}")
 
+            print("\n--- Installing Flatpak Applications ---")
             for package in data.get("flatpaks", []):
                 if is_flatpak_installed(package):
-                    print(f"[✓] Flatpak already installed: {package}")
+                    print(f"Flatpak already installed: {package}")
                     continue
 
-                print(f"[+] Installing Flatpak: {package}")
-                if answeryn == "y":
+                print(f"Installing Flatpak: {package}")
+                if answeryn == "1":
                     input("Press Enter to install or Ctrl+C to skip...")
-                    subprocess.run(f"flatpak install flathub {package}", shell=True, check=True)
+                    try:
+                        subprocess.run(f"flatpak install flathub {package}", shell=True, check=True)
+                    except subprocess.CalledProcessError as e:
+                        print(f"Error installing Flatpak {package}: {e}")
                 else:
-                    subprocess.run(f"flatpak install flathub {package} -y", shell=True, check=True)
+                    try:
+                        subprocess.run(f"flatpak install flathub {package} -y", shell=True, check=True)
+                    except subprocess.CalledProcessError as e:
+                        print(f"Error installing Flatpak {package}: {e}")
+            break
+        else:
+            print("Invalid choice. Please enter 1 or 2.")
 
 
 def config_prompt():
-    print("Do you want to create a config file(c), import from appdir(i), export to appdir(e), or rollback(r)? [c/i/e/r]")
     while True:
-        answer = input().lower()
-        if answer == "c":
+        print("\nDo you want to:")
+        print("  1. Create a config file")
+        print("  2. Import from application directory")
+        print("  3. Export to application directory")
+        print("  4. Rollback files")
+        answer = input("Enter your choice [1/2/3/4]: ")
+        if answer == "1":
             create_config_json("config_files.json", [])
             break
-        elif answer == "i":
+        elif answer == "2":
             import_from_appdir()
             break
-        elif answer == "e":
+        elif answer == "3":
             move_files()
             break
-        elif answer == "r":
+        elif answer == "4":
             rollback_files()
             break
+        else:
+            print("Invalid choice. Please enter 1, 2, 3, or 4.")
 
 
 def main():
-    answerpc = ''
-    while answerpc.lower() not in ("p", "c"):
-        print("Do you want to change config_files(c) or change packages (p)")
-        answerpc = input()
-        if answerpc == "c":
+    while True:
+        print("\nWhat do you want to manage?")
+        print("  1. Configuration files")
+        print("  2. Packages")
+        answerpc = input("Enter your choice [1/2]: ")
+        if answerpc == "1":
             config_prompt()
-        elif answerpc == "p":
+            break
+        elif answerpc == "2":
             package_prompt()
+            break
+        else:
+            print("Invalid choice. Please enter 1 or 2.")
 
 
 if __name__ == "__main__":
