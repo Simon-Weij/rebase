@@ -44,6 +44,24 @@ def create_config_json(filename, template):
     print(f"Saved config structure to: {filename} in directory {os.getcwd()}")
 
 
+def is_dnf_installed(package):
+    result = subprocess.run(
+        ["dnf", "list", "installed", package],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    return result.returncode == 0
+
+
+def is_flatpak_installed(package):
+    result = subprocess.run(
+        ["flatpak", "info", package],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    return result.returncode == 0
+
+
 def package_prompt():
     answer = ''
     while answer.lower() not in ("e", "i"):
@@ -65,7 +83,11 @@ def package_prompt():
                 answeryn = input().lower()
 
             for package in data.get("dnf", []):
-                print(f"Package: {package}")
+                if is_dnf_installed(package):
+                    print(f"DNF package already installed: {package}")
+                    continue
+
+                print(f"Installing DNF package: {package}")
                 if answeryn == "y":
                     input("Press Enter to install or Ctrl+C to skip...")
                     subprocess.run(["sudo", "dnf", "install", package], check=True)
@@ -73,7 +95,11 @@ def package_prompt():
                     subprocess.run(["sudo", "dnf", "install", package, "-y"], check=True)
 
             for package in data.get("flatpaks", []):
-                print(f"Flatpak: {package}")
+                if is_flatpak_installed(package):
+                    print(f"[✓] Flatpak already installed: {package}")
+                    continue
+
+                print(f"[+] Installing Flatpak: {package}")
                 if answeryn == "y":
                     input("Press Enter to install or Ctrl+C to skip...")
                     subprocess.run(f"flatpak install flathub {package}", shell=True, check=True)
