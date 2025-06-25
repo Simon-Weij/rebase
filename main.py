@@ -1,13 +1,22 @@
 import os
 import subprocess
 import json
-
 from config_save import move_files, import_from_appdir, rollback_files
 
 
 def get_user_installed_packages():
     result = subprocess.run(
         ["dnf", "repoquery", "--userinstalled", "--qf", "%{name}\\n"],
+        capture_output=True,
+        text=True,
+        check=True
+    )
+    return result.stdout.splitlines()
+
+
+def get_enabled_copr_repos():
+    result = subprocess.run(
+        ["dnf", "copr", "list"],
         capture_output=True,
         text=True,
         check=True
@@ -25,10 +34,11 @@ def get_installed_flatpaks():
     return result.stdout.splitlines()
 
 
-def save_apps_to_json(filename, dnf_packages, flatpak_packages):
+def save_apps_to_json(filename, dnf_packages, flatpak_packages, copr_repos):
     output = {
         "dnf": dnf_packages,
-        "flatpaks": flatpak_packages
+        "flatpaks": flatpak_packages,
+        "coprs": copr_repos
     }
     with open(filename, 'w') as f:
         json.dump(output, f, indent=2)
@@ -41,7 +51,7 @@ def create_config_json(filename, template):
     }
     with open(filename, 'w') as f:
         json.dump(output, f, indent=2)
-    print(f"Saved config structure to: {filename} in directory {os.getcwd()}")
+    print(f"Saved config to: {filename} in directory {os.getcwd()}")
 
 
 def is_dnf_installed(package):
@@ -72,8 +82,10 @@ def package_prompt():
         if answer == "1":
             dnf_packages = get_user_installed_packages()
             flatpak_packages = get_installed_flatpaks()
-            save_apps_to_json("packages.json", dnf_packages, flatpak_packages)
+            copr_repos = get_enabled_copr_repos()
+            save_apps_to_json("packages.json", dnf_packages, flatpak_packages, copr_repos)
             break
+
         elif answer == "2":
             try:
                 with open("packages.json", "r") as f:
@@ -90,6 +102,14 @@ def package_prompt():
                 else:
                     print("Invalid choice. Please enter 1 or 2.")
 
+            print("\n--- Enabling COPR Repositories ---")
+            for repo in data.get("coprs", []):
+                print(f"Enabling COPR: {repo}")
+                try:
+                    subprocess.run(["sudo", "dnf", "copr", "enable", repo, "-y"], check=True)
+                except subprocess.CalledProcessError as e:
+                    print(f"Error enabling COPR {repo}: {e}")
+
             print("\n--- Installing DNF Packages ---")
             for package in data.get("dnf", []):
                 if is_dnf_installed(package):
@@ -99,15 +119,10 @@ def package_prompt():
                 print(f"Installing DNF package: {package}")
                 if answeryn == "1":
                     input("Press Enter to install or Ctrl+C to skip...")
-                    try:
-                        subprocess.run(["sudo", "dnf", "install", package], check=True)
-                    except subprocess.CalledProcessError as e:
-                        print(f"Error installing DNF package {package}: {e}")
-                else:
-                    try:
-                        subprocess.run(["sudo", "dnf", "install", package, "-y"], check=True)
-                    except subprocess.CalledProcessError as e:
-                        print(f"Error installing DNF package {package}: {e}")
+                try:
+                    subprocess.run(["sudo", "dnf", "install", package, "-y"], check=True)
+                except subprocess.CalledProcessError as e:
+                    print(f"Error installing DNF package {package}: {e}")
 
             print("\n--- Installing Flatpak Applications ---")
             for package in data.get("flatpaks", []):
@@ -118,15 +133,10 @@ def package_prompt():
                 print(f"Installing Flatpak: {package}")
                 if answeryn == "1":
                     input("Press Enter to install or Ctrl+C to skip...")
-                    try:
-                        subprocess.run(f"flatpak install flathub {package}", shell=True, check=True)
-                    except subprocess.CalledProcessError as e:
-                        print(f"Error installing Flatpak {package}: {e}")
-                else:
-                    try:
-                        subprocess.run(f"flatpak install flathub {package} -y", shell=True, check=True)
-                    except subprocess.CalledProcessError as e:
-                        print(f"Error installing Flatpak {package}: {e}")
+                try:
+                    subprocess.run(f"flatpak install flathub {package} -y", shell=True, check=True)
+                except subprocess.CalledProcessError as e:
+                    print(f"Error installing Flatpak {package}: {e}")
             break
         else:
             print("Invalid choice. Please enter 1 or 2.")
