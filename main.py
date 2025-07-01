@@ -3,37 +3,6 @@ import subprocess
 import json
 from config_save import move_files, import_from_appdir, rollback_files
 
-
-def get_user_installed_packages():
-    result = subprocess.run(
-        ["dnf", "repoquery", "--userinstalled", "--qf", "%{name}\\n"],
-        capture_output=True,
-        text=True,
-        check=True
-    )
-    return result.stdout.splitlines()
-
-
-def get_enabled_copr_repos():
-    result = subprocess.run(
-        ["dnf", "copr", "list"],
-        capture_output=True,
-        text=True,
-        check=True
-    )
-    return result.stdout.splitlines()
-
-
-def get_installed_flatpaks():
-    result = subprocess.run(
-        ["flatpak", "list", "--app", "--columns=application"],
-        capture_output=True,
-        text=True,
-        check=True
-    )
-    return result.stdout.splitlines()
-
-
 def save_apps_to_json(filename, dnf_packages, flatpak_packages, copr_repos):
     output = {
         "dnf": dnf_packages,
@@ -52,95 +21,6 @@ def create_config_json(filename, template):
     with open(filename, 'w') as f:
         json.dump(output, f, indent=2)
     print(f"Saved config to: {filename} in directory {os.getcwd()}")
-
-
-def is_dnf_installed(package):
-    result = subprocess.run(
-        ["dnf", "list", "installed", package],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
-    )
-    return result.returncode == 0
-
-
-def is_flatpak_installed(package):
-    result = subprocess.run(
-        ["flatpak", "info", package],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
-    )
-    return result.returncode == 0
-
-
-def package_prompt():
-    while True:
-        print("\nDo you want to:")
-        print("  1. Export packages to JSON")
-        print("  2. Install packages from JSON")
-        answer = input("Enter your choice [1/2]: ")
-
-        if answer == "1":
-            dnf_packages = get_user_installed_packages()
-            flatpak_packages = get_installed_flatpaks()
-            copr_repos = get_enabled_copr_repos()
-            save_apps_to_json("packages.json", dnf_packages, flatpak_packages, copr_repos)
-            break
-
-        elif answer == "2":
-            try:
-                with open("packages.json", "r") as f:
-                    data = json.load(f)
-            except FileNotFoundError:
-                print("Error: packages.json not found. Please export packages first.")
-                return
-
-            while True:
-                print("\nDo you want to manually approve each package? [1=Yes/2=No]")
-                answeryn = input("Enter your choice [1/2]: ")
-                if answeryn in ("1", "2"):
-                    break
-                else:
-                    print("Invalid choice. Please enter 1 or 2.")
-
-            print("\n--- Enabling COPR Repositories ---")
-            for repo in data.get("coprs", []):
-                print(f"Enabling COPR: {repo}")
-                try:
-                    subprocess.run(["sudo", "dnf", "copr", "enable", repo, "-y"], check=True)
-                except subprocess.CalledProcessError as e:
-                    print(f"Error enabling COPR {repo}: {e}")
-
-            print("\n--- Installing DNF Packages ---")
-            for package in data.get("dnf", []):
-                if is_dnf_installed(package):
-                    print(f"DNF package already installed: {package}")
-                    continue
-
-                print(f"Installing DNF package: {package}")
-                if answeryn == "1":
-                    input("Press Enter to install or Ctrl+C to skip...")
-                try:
-                    subprocess.run(["sudo", "dnf", "install", package, "-y"], check=True)
-                except subprocess.CalledProcessError as e:
-                    print(f"Error installing DNF package {package}: {e}")
-
-            print("\n--- Installing Flatpak Applications ---")
-            for package in data.get("flatpaks", []):
-                if is_flatpak_installed(package):
-                    print(f"Flatpak already installed: {package}")
-                    continue
-
-                print(f"Installing Flatpak: {package}")
-                if answeryn == "1":
-                    input("Press Enter to install or Ctrl+C to skip...")
-                try:
-                    subprocess.run(f"flatpak install flathub {package} -y", shell=True, check=True)
-                except subprocess.CalledProcessError as e:
-                    print(f"Error installing Flatpak {package}: {e}")
-            break
-        else:
-            print("Invalid choice. Please enter 1 or 2.")
-
 
 def config_prompt():
     while True:
@@ -167,19 +47,7 @@ def config_prompt():
 
 
 def main():
-    while True:
-        print("\nWhat do you want to manage?")
-        print("  1. Configuration files")
-        print("  2. Packages")
-        answerpc = input("Enter your choice [1/2]: ")
-        if answerpc == "1":
-            config_prompt()
-            break
-        elif answerpc == "2":
-            package_prompt()
-            break
-        else:
-            print("Invalid choice. Please enter 1 or 2.")
+    config_prompt()
 
 
 if __name__ == "__main__":

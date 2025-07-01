@@ -1,8 +1,6 @@
 # Rebase
 
-!!!REBASE IS NOT DONE YET, DONT REPORT BUGS THE SOFTWARE IS NOT DONE!!!
-
-Rebase is a cli-app for fedora and other rhel-based distributions. It's made to make fedora and similar distros more reproducible. 
+Rebase is a cli-app for Linux. It's made to make your installations more reproducable
 
 ## Features
 - Easy configuration
