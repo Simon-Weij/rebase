@@ -8,8 +8,7 @@ Rebase is a cli-app for Linux. It's made to make your installations more reprodu
 
 
 ## How does it work?
-Rebase gets all installed packages, stores this information and re-installs them on your new installation. (also works with flatpak)
-For configuration files. You can add file paths and the file gets replaced with a symlink. While the actual file gets moved to 1 directory rebase can read.
+You can add file paths to a JSON file and the file gets replaced with a symlink. While the actual file gets moved to a directory rebase can read.
 
 ## LICENSE
 This project is licensed under the GNU General Public License v3.0 – see the [LICENSE](LICENSE) file for details.
